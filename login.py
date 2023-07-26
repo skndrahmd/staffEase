@@ -1,5 +1,5 @@
 import sqlite3
-from flask import Flask, request, jsonify, g, render_template
+from flask import Flask, request, jsonify, g, render_template, redirect, url_for, session
 import openai
 from twilio.rest import Client
 import json
@@ -8,12 +8,8 @@ openai.api_key = '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'
 twilio_client = Client('AC652aeef1d32f9cf28315b2558c34aa31', 'fe39d68cac19aae0b3f438ed22fa6670')
 DATABASE = r'C:\Users\sikan\OneDrive\Desktop\database\test.db'
 
-
 app = Flask(__name__)
-
-def read_txt_file(filename):
-    with open(filename, 'r') as file:
-        return file.read()
+app.secret_key = 'your_secret_key'  # Set your own secret key
 
 
 def get_db():
@@ -22,14 +18,107 @@ def get_db():
         db = g._database = sqlite3.connect(DATABASE)
     return db
 
+
+def read_txt_file(filename):
+    with open(filename, 'r') as file:
+        return file.read()
+
+
+
 @app.route('/')
 def home():
-    return render_template('index.html')
+    if 'username' in session:
+        return redirect(url_for('task_manager'))
+    return render_template('login.html')
 
 
-@app.route('/ongoing-chats')
-def chats():
-    return render_template('chats.html')
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if 'username' in session:
+        return redirect(url_for('task_manager'))
+
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        first_name = request.form['first_name']
+        last_name = request.form['last_name']
+        db = get_db()
+        cursor = db.cursor()
+
+        # Check if the username already exists
+        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+        existing_user = cursor.fetchone()
+
+        if existing_user:
+            return 'Username already exists!'
+
+        # Insert new user into the database
+        cursor.execute("INSERT INTO users (username, password, first_name, last_name) VALUES (?, ?, ?, ?)", (username, password, first_name, last_name))
+        db.commit()
+
+        # Set the session username
+        session['username'] = username
+
+        return redirect(url_for('task_manager'))
+
+    return render_template('register.html')
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if 'username' in session:
+        return redirect(url_for('task_manager'))
+
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        db = get_db()
+        cursor = db.cursor()
+
+        # Check if the username and password match
+        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+        user = cursor.fetchone()
+
+        if user and user[2] == password:
+            session['username'] = username
+            return redirect(url_for('task_manager'))
+        else:
+            return 'Invalid username or password!'
+
+    return render_template('login.html')
+
+
+@app.route('/logout')
+def logout():
+    session.pop('username', None)
+    return redirect(url_for('home'))
+
+
+@app.route('/task_manager')
+def task_manager():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
+    username = session['username']
+    db = get_db()
+    cursor = db.cursor()
+    
+    # Execute a SELECT query to fetch rows from the 'users' table
+    cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+    user = cursor.fetchone()
+    print(user[3])
+    name = user[3]
+    return render_template('index.html', username=name)
+
+
+# Rest of the code...
+
+
+def get_db():
+    db = getattr(g, '_database', None)
+    if db is None:
+        db = g._database = sqlite3.connect(DATABASE)
+    return db
 
 
 @app.teardown_appcontext
@@ -145,5 +234,5 @@ def sms_reply():
 if __name__ == '__main__':
     with app.app_context():
         db = get_db()
-        db.execute("CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY, title TEXT, description TEXT);")
+        db.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, password TEXT, first_name TEXT, last_name TEXT);")
     app.run(debug=True)

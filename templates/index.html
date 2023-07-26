@@ -1,4 +1,4 @@
-<!--index.html-->
+<!-- index.html -->
 
 <!DOCTYPE html>
 <html>
@@ -14,15 +14,16 @@
     <div class="logo">Staff Ease Admin Dashboard</div>
     <div class="nav-buttons">
       <button onclick="location.href='/'">Task Manager</button>
-      <button onclick="location.href='/ongoing-chats'">Ongoing Chats</button>
+      <!-- <button onclick="location.href='/ongoing-chats'">Ongoing Chats</button> -->
+      <button onclick="location.href='/logout'" style="background-color: red;">Logout</button>
     </div>
   </div>
 
-<div style="text-align: center;">
-  <h1 style="text-align: center; font-weight: bold; padding: 3rem 0 0 0; text-shadow: 2px 2px grey;">Task Manager</h1>
-</div>
- 
+  <h1>Welcome, {{ username }}!</h1>
 
+  <div style="text-align: center;">
+    <h1 style="text-align: center; font-weight: bold; padding: 3rem 0 0 0; text-shadow: 2px 2px grey;">Task Manager</h1>
+  </div>
 
   <div>
     <h3 style="padding: 20px 0 20px 0;">Add new Employee to database</h3>
@@ -34,37 +35,42 @@
       <input type="text" id="designation" placeholder="Designation">
       <button type="submit">Add Employee</button>
     </form>
-
   </div>
-
 
   <ul id="tasks">
   </ul>
 
-  
-
   <script>
+    var jwtToken = '{{ session["Authorization"] }}';
+
     function refreshTasks() {
-      $.getJSON("/tasks", function(data) {
-        $("#tasks").empty();
-        data.forEach(function(task) {
-          var taskItem = $(
-            `<li data-id="${task[0]}">
-              <span class="task-text">${task[1]} - ${task[2]} - ${task[3]} - ${task[4]} - ${task[5]}</span>
-              <form class="edit-form" style="display: none;">
-                <input type="text" class="edit-name" value="${task[1]}">
-                <input type="text" class="edit-phonenumber" value="${task[2]}">
-                <input type="text" class="edit-leaves" value="${task[3]}">
-                <input type="text" class="edit-salary" value="${task[4]}">
-                <input type="text" class="edit-designation" value="${task[5]}">
-                <button type="submit">Save</button>
-              </form>
-              <button class="edit-button" onclick="editTask(${task[0]})">Edit</button>
-              <button class="delete-button" onclick="deleteTask(${task[0]})">Delete</button>
-            </li>`
-          );
-          $("#tasks").append(taskItem);
-        });
+      $.ajax({
+        url: "/tasks",
+        type: "GET",
+        headers: {
+          "Authorization": "Bearer " + localStorage.getItem("token")
+        },
+        success: function(data) {
+          $("#tasks").empty();
+          data.forEach(function(task) {
+            var taskItem = $(
+              `<li data-id="${task[0]}">
+                <span class="task-text">${task[1]} - ${task[2]} - ${task[3]} - ${task[4]} - ${task[5]}</span>
+                <form class="edit-form" style="display: none;">
+                  <input type="text" class="edit-name" value="${task[1]}">
+                  <input type="text" class="edit-phonenumber" value="${task[2]}">
+                  <input type="text" class="edit-leaves" value="${task[3]}">
+                  <input type="text" class="edit-salary" value="${task[4]}">
+                  <input type="text" class="edit-designation" value="${task[5]}">
+                  <button type="submit">Save</button>
+                </form>
+                <button class="edit-button" onclick="editTask(${task[0]})">Edit</button>
+                <button class="delete-button" onclick="deleteTask(${task[0]})">Delete</button>
+              </li>`
+            );
+            $("#tasks").append(taskItem);
+          });
+        }
       });
     }
 
@@ -82,7 +88,10 @@
       var designation = $("#designation").val();
       $.ajax({
         url: "/tasks",
-        type: "post",
+        type: "POST",
+        headers: {
+          "Authorization": "Bearer " + localStorage.getItem("token")
+        },
         data: JSON.stringify({name: name, phone_number: phone_number, leaves: leaves, salary: salary, designation: designation}),
         contentType: "application/json",
         success: function() {
@@ -94,13 +103,15 @@
     function deleteTask(id) {
       $.ajax({
         url: "/tasks/" + id,
-        type: "delete",
+        type: "DELETE",
+        headers: {
+          "Authorization": "Bearer " + localStorage.getItem("token")
+        },
         success: function() {
           refreshTasks();
         }
       });
     }
-
 
     function editTask(id) {
       var li = $(`[data-id='${id}']`);
@@ -111,7 +122,10 @@
     function updateTask(id, newName, newphone_number, newLeaves, newSalary, newDesignation) {
       $.ajax({
         url: "/tasks/" + id,
-        type: "put",
+        type: "PUT",
+        headers: {
+          "Authorization": "Bearer " + localStorage.getItem("token")
+        },
         data: JSON.stringify({name: newName, phone_number: newphone_number, leaves: newLeaves, salary: newSalary, designation: newDesignation}),
         contentType: "application/json",
         success: function() {

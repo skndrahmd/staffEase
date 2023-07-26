@@ -1,0 +1,65 @@
+@import url('https://fonts.googleapis.com/css2?family=Pathway+Extreme:wght@200&family=Raleway&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Roboto', sans-serif;
+  background-color: #F5F5F5;
+  padding: 20px;
+  color: #333;
+  font-family: 'Raleway', sans-serif;
+}
+
+/* Registration page styles */
+.register-container {
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #f1f1f1;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  
+  .register-container h1 {
+    margin-bottom: 20px;
+    color: #333;
+  }
+  
+  .register-container input[type="text"],
+  .register-container input[type="password"],
+  .register-container input[type="submit"] {
+    display: block;
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  
+  .register-container input[type="submit"] {
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+  }
+  
+  .register-container input[type="submit"]:hover {
+    background-color: #45a049;
+  }
+  
+  button {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #0B666A !important;
+    color: white;
+    cursor: pointer;
+  }

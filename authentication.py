@@ -1,20 +1,24 @@
 import sqlite3
-from flask import Flask, request, jsonify, g, render_template
+from flask import Flask, request, jsonify, g, render_template, redirect, url_for, session
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 import openai
 from twilio.rest import Client
 import json
+import os
 
 openai.api_key = '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'
 twilio_client = Client('AC652aeef1d32f9cf28315b2558c34aa31', 'fe39d68cac19aae0b3f438ed22fa6670')
 DATABASE = r'C:\Users\sikan\OneDrive\Desktop\database\test.db'
-
+secret_key = os.urandom(24)
 
 app = Flask(__name__)
-
-def read_txt_file(filename):
-    with open(filename, 'r') as file:
-        return file.read()
-
+app.secret_key = secret_key
+app.config['JWT_SECRET_KEY'] = secret_key
+app.config['JWT_TOKEN_LOCATION'] = ['headers']
+app.config['JWT_BLACKLIST_ENABLED'] = True
+app.config['PROPAGATE_EXCEPTIONS'] = True
+app.config['JWT_BLACKLIST_ENABLED'] = True
+jwt = JWTManager(app)
 
 def get_db():
     db = getattr(g, '_database', None)
@@ -22,14 +26,110 @@ def get_db():
         db = g._database = sqlite3.connect(DATABASE)
     return db
 
+
+def read_txt_file(filename):
+    with open(filename, 'r') as file:
+        return file.read()
+
+
 @app.route('/')
 def home():
-    return render_template('index.html')
+    if 'Authorization' in session:
+        return redirect(url_for('task_manager'))
+    return render_template('login.html')
 
 
-@app.route('/ongoing-chats')
-def chats():
-    return render_template('chats.html')
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if 'Authorization' in session:
+        return redirect(url_for('task_manager'))
+
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        first_name = request.form['first_name']
+        last_name = request.form['last_name']
+        db = get_db()
+        cursor = db.cursor()
+
+        # Check if the username already exists
+        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+        existing_user = cursor.fetchone()
+
+        if existing_user:
+            return 'Username already exists!'
+
+        # Insert new user into the database
+        cursor.execute("INSERT INTO users (username, password, first_name, last_name) VALUES (?, ?, ?, ?)",
+                       (username, password, first_name, last_name))
+        db.commit()
+
+        # Generate a JWT token
+        token = create_access_token(identity=username)
+
+        session['Authorization'] = token
+
+        return redirect(url_for('task_manager'))
+
+    return render_template('register.html')
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if 'Authorization' in session:
+        return redirect(url_for('task_manager'))
+
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        db = get_db()
+        cursor = db.cursor()
+
+        # Check if the username and password match
+        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+        user = cursor.fetchone()
+
+        if user and user[2] == password:
+            # Generate a JWT token
+            token = create_access_token(identity=username)
+
+            session['Authorization'] = token
+
+            return redirect(url_for('task_manager'))
+        else:
+            return 'Invalid username or password!'
+
+    return render_template('login.html')
+
+
+@app.route('/logout')
+def logout():
+    session.pop('Authorization', None)
+    return redirect(url_for('home'))
+
+
+@app.route('/task_manager')
+@jwt_required()
+def task_manager():
+    username = get_jwt_identity()
+    db = get_db()
+    cursor = db.cursor()
+
+    # Execute a SELECT query to fetch rows from the 'users' table
+    cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+    user = cursor.fetchone()
+    print(user[3])
+    name = user[3]
+    return render_template('index.html', username=name)
+
+
+# Rest of the code...
+
+def get_db():
+    db = getattr(g, '_database', None)
+    if db is None:
+        db = g._database = sqlite3.connect(DATABASE)
+    return db
 
 
 @app.teardown_appcontext
@@ -39,6 +139,7 @@ def close_connection(exception):
         db.close()
 
 @app.route('/tasks', methods=['POST', 'GET'])
+@jwt_required()
 def manage_tasks():
     db = get_db()
     cursor = db.cursor()
@@ -55,6 +156,7 @@ def manage_tasks():
     return jsonify(tasks)
 
 @app.route('/tasks/<int:id>', methods=['PUT', 'DELETE'])
+@jwt_required()
 def update_delete_task(id):
     db = get_db()
     cursor = db.cursor()
@@ -73,7 +175,6 @@ def update_delete_task(id):
 
 # Set up route to receive WhatsApp messages
 @app.route('/sms', methods=['POST'])
-
 def sms_reply():
     # Get the message body and sender's phone number
     message_body = request.form['Body']
@@ -92,20 +193,17 @@ def sms_reply():
     print(user_data)
     print(message_body)
 
- 
     if user_data is None:
         response_text = "Sorry, I couldn't find your information in the database. Please try again."
     else:
-
         # Re-query the database to get updated user data
         cursor.execute(f"SELECT * FROM employees WHERE phone_number = '{str_sender}';")
         user_data = cursor.fetchone()
 
-
         # Convert user data to JSON format
         user_json = {
-            "id": user_data[0], 
-            "name": user_data[1], 
+            "id": user_data[0],
+            "name": user_data[1],
             "phone_number": user_data[2],
             "leaves": user_data[3],
             "salary": user_data[4]
@@ -131,7 +229,6 @@ def sms_reply():
         response_text = response['choices'][0]['message']['content']
         print(response_text)
 
-
     # Send response back through Twilio
     twilio_client.messages.create(
         body=response_text,
@@ -143,7 +240,7 @@ def sms_reply():
 
 
 if __name__ == '__main__':
-    with app.app_context():
-        db = get_db()
-        db.execute("CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY, title TEXT, description TEXT);")
-    app.run(debug=True)
+    app.config['SESSION_TYPE'] = 'filesystem'
+
+    app.debug = True
+    app.run()
