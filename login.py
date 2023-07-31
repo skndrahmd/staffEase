@@ -1,8 +1,10 @@
 import sqlite3
-from flask import Flask, request, jsonify, g, render_template, redirect, url_for, session
+from flask import Flask, request, jsonify, g, render_template, redirect, url_for, session, make_response
 import openai
 from twilio.rest import Client
 import json
+import csv
+import io
 
 openai.api_key = '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'
 twilio_client = Client('AC652aeef1d32f9cf28315b2558c34aa31', 'fe39d68cac19aae0b3f438ed22fa6670')
@@ -23,6 +25,98 @@ def read_txt_file(filename):
     with open(filename, 'r') as file:
         return file.read()
 
+
+
+@app.route('/download') 
+def download_csv():
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+    c.execute("SELECT * FROM employees")
+
+    headers = [desc[0] for desc in c.description]
+    
+    rows = c.fetchall()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow(headers)
+    writer.writerows(rows)
+
+    output.seek(0)
+
+    response = make_response(output.read())
+    response.headers['Content-Disposition'] = 'attachment; filename=data.csv'
+
+    return response
+
+
+# @app.route('/upload', methods=['POST'])
+# def upload_file():
+#     file = request.files['file']
+    
+#     if file:
+#         try:
+#             csv_data = file.read().decode('utf-8').splitlines()
+#             reader = csv.reader(csv_data)
+#             header = next(reader)
+
+#             conn = sqlite3.connect(DATABASE)
+#             c = conn.cursor()
+            
+#             for row in reader:
+#                 c.execute(f"INSERT INTO employees ({', '.join(header)}) VALUES ({', '.join(['?']*len(header))})", row)
+            
+#             conn.commit()
+#             conn.close()
+            
+#             return jsonify({"message": "CSV imported successfully"})
+        
+#         except Exception as e:
+#             return jsonify({"message": "Error importing CSV", "error": str(e)})
+
+#     else:
+#         return jsonify({"message": "No file selected"})
+
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    file = request.files['file']
+
+    if file:
+        try:
+            db_path = DATABASE
+            
+            csv_data = file.read().decode('utf-8').splitlines()
+            reader = csv.reader(csv_data)
+
+            header = next(reader)
+            
+            conn = sqlite3.connect(db_path)
+            c = conn.cursor()
+            
+            # Drop table if exists
+            c.execute('DROP TABLE IF EXISTS employees')
+            
+            # Recreate table
+            c.execute(f'CREATE TABLE employees ({", ".join([col + " TEXT" for col in header])})')
+            
+            # Insert rows from CSV 
+            for row in reader:
+                placeholders = ", ".join(['?']*len(row))
+                c.execute(f'INSERT INTO employees VALUES ({placeholders})', row)
+
+            conn.commit()
+            conn.close()
+
+            return jsonify({'message': 'CSV imported successfully'})
+
+        except Exception as e:
+            return jsonify({'message': 'Error importing CSV', 'error': str(e)})
+
+    else:
+        return jsonify({'message': 'No file selected'})
+    
 
 
 @app.route('/')

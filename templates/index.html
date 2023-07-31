@@ -2,59 +2,78 @@
 
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Staff Ease</title>
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-  <!-- Rest of your head content -->
-</head>
-<body>
-
-  <div class="navbar">
-    <div class="logo">Staff Ease Admin Dashboard</div>
-    <div class="nav-buttons">
-      <button onclick="location.href='/'">Task Manager</button>
-      <!-- <button onclick="location.href='/ongoing-chats'">Ongoing Chats</button> -->
-      <button onclick="location.href='/logout'" style="background-color: red;">Logout</button>
+  <head>
+    <title>Staff Ease</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='styles.css') }}"
+    />
+    <!-- Rest of your head content -->
+  </head>
+  <body>
+    <div class="navbar">
+      <div class="logo">Staff Ease Admin Dashboard</div>
+      <div class="nav-buttons">
+        <button onclick="location.href='/'">Task Manager</button>
+        <!-- <button onclick="location.href='/ongoing-chats'">Ongoing Chats</button> -->
+        <button onclick="location.href='/logout'" style="background-color: red">
+          Logout
+        </button>
+      </div>
     </div>
-  </div>
 
-  <h1>Welcome, {{ username }}!</h1>
+    <h1>Welcome, {{ username }}!</h1>
 
-  <div style="text-align: center;">
-    <h1 style="text-align: center; font-weight: bold; padding: 3rem 0 0 0; text-shadow: 2px 2px grey;">Task Manager</h1>
-  </div>
+    <div style="text-align: center">
+      <h1
+        style="
+          text-align: center;
+          font-weight: bold;
+          padding: 3rem 0 0 0;
+          text-shadow: 2px 2px grey;
+        "
+      >
+        Task Manager
+      </h1>
+    </div>
 
-  <div>
-    <h3 style="padding: 20px 0 20px 0;">Add new Employee to database</h3>
-    <form id="taskForm">
-      <input type="text" id="name" placeholder="Name">
-      <input type="text" id="phone_number" placeholder="Phone">
-      <input type="text" id="leaves" placeholder="Leaves">
-      <input type="text" id="salary" placeholder="Salary">
-      <input type="text" id="designation" placeholder="Designation">
-      <button type="submit">Add Employee</button>
-    </form>
-  </div>
+    <div>
+      <button id="download-btn">Download CSV</button>
 
-  <ul id="tasks">
-  </ul>
+      <input type="file" id="csv-file" />
+      <button id="upload-btn">Upload CSV</button>
+    </div>
 
-  <script>
-    var jwtToken = '{{ session["Authorization"] }}';
+    <div>
+      <h3 style="padding: 20px 0 20px 0">Add new Employee to database</h3>
+      <form id="taskForm">
+        <input type="text" id="name" placeholder="Name" />
+        <input type="text" id="phone_number" placeholder="Phone" />
+        <input type="text" id="leaves" placeholder="Leaves" />
+        <input type="text" id="salary" placeholder="Salary" />
+        <input type="text" id="designation" placeholder="Designation" />
+        <button type="submit">Add Employee</button>
+      </form>
+    </div>
 
-    function refreshTasks() {
-      $.ajax({
-        url: "/tasks",
-        type: "GET",
-        headers: {
-          "Authorization": "Bearer " + localStorage.getItem("token")
-        },
-        success: function(data) {
-          $("#tasks").empty();
-          data.forEach(function(task) {
-            var taskItem = $(
-              `<li data-id="${task[0]}">
+    <ul id="tasks"></ul>
+
+    <script>
+      var jwtToken = '{{ session["Authorization"] }}';
+
+      function refreshTasks() {
+        $.ajax({
+          url: "/tasks",
+          type: "GET",
+          headers: {
+            Authorization: "Bearer " + localStorage.getItem("token"),
+          },
+          success: function (data) {
+            $("#tasks").empty();
+            data.forEach(function (task) {
+              var taskItem = $(
+                `<li data-id="${task[0]}">
                 <span class="task-text">${task[1]} - ${task[2]} - ${task[3]} - ${task[4]} - ${task[5]}</span>
                 <form class="edit-form" style="display: none;">
                   <input type="text" class="edit-name" value="${task[1]}">
@@ -67,86 +86,149 @@
                 <button class="edit-button" onclick="editTask(${task[0]})">Edit</button>
                 <button class="delete-button" onclick="deleteTask(${task[0]})">Delete</button>
               </li>`
-            );
-            $("#tasks").append(taskItem);
+              );
+              $("#tasks").append(taskItem);
+            });
+          },
+        });
+      }
+
+      $("#taskForm").submit(function (e) {
+        e.preventDefault();
+        createTask();
+        this.reset();
+      });
+
+      function createTask() {
+        var name = $("#name").val();
+        var phone_number = $("#phone_number").val();
+        var leaves = $("#leaves").val();
+        var salary = $("#salary").val();
+        var designation = $("#designation").val();
+        $.ajax({
+          url: "/tasks",
+          type: "POST",
+          headers: {
+            Authorization: "Bearer " + localStorage.getItem("token"),
+          },
+          data: JSON.stringify({
+            name: name,
+            phone_number: phone_number,
+            leaves: leaves,
+            salary: salary,
+            designation: designation,
+          }),
+          contentType: "application/json",
+          success: function () {
+            refreshTasks();
+          },
+        });
+      }
+
+      function deleteTask(id) {
+        $.ajax({
+          url: "/tasks/" + id,
+          type: "DELETE",
+          headers: {
+            Authorization: "Bearer " + localStorage.getItem("token"),
+          },
+          success: function () {
+            refreshTasks();
+          },
+        });
+      }
+
+      function editTask(id) {
+        var li = $(`[data-id='${id}']`);
+        li.find(".task-text, .edit-button, .delete-button").toggle();
+        li.find(".edit-form").toggle();
+      }
+
+      function updateTask(
+        id,
+        newName,
+        newphone_number,
+        newLeaves,
+        newSalary,
+        newDesignation
+      ) {
+        $.ajax({
+          url: "/tasks/" + id,
+          type: "PUT",
+          headers: {
+            Authorization: "Bearer " + localStorage.getItem("token"),
+          },
+          data: JSON.stringify({
+            name: newName,
+            phone_number: newphone_number,
+            leaves: newLeaves,
+            salary: newSalary,
+            designation: newDesignation,
+          }),
+          contentType: "application/json",
+          success: function () {
+            refreshTasks();
+          },
+        });
+      }
+
+      $(document).on("submit", ".edit-form", function (e) {
+        e.preventDefault();
+        var id = $(this).parent().data("id");
+        var newName = $(this).find(".edit-name").val();
+        var newphone_number = $(this).find(".edit-phonenumber").val();
+        var newLeaves = $(this).find(".edit-leaves").val();
+        var newSalary = $(this).find(".edit-salary").val();
+        var newDesignation = $(this).find(".edit-designation").val();
+        updateTask(
+          id,
+          newName,
+          newphone_number,
+          newLeaves,
+          newSalary,
+          newDesignation
+        );
+      });
+
+      const downloadBtn = document.getElementById("download-btn");
+
+      downloadBtn.addEventListener("click", () => {
+        fetch("/download")
+          .then((response) => response.blob())
+          .then((blob) => {
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", "data.csv");
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
           });
-        }
       });
-    }
 
-    $("#taskForm").submit(function(e) {
-      e.preventDefault();
-      createTask();
-      this.reset();
-    });
+      const uploadBtn = document.getElementById("upload-btn");
 
-    function createTask() {
-      var name = $("#name").val();
-      var phone_number = $("#phone_number").val();
-      var leaves = $("#leaves").val();
-      var salary = $("#salary").val();
-      var designation = $("#designation").val();
-      $.ajax({
-        url: "/tasks",
-        type: "POST",
-        headers: {
-          "Authorization": "Bearer " + localStorage.getItem("token")
-        },
-        data: JSON.stringify({name: name, phone_number: phone_number, leaves: leaves, salary: salary, designation: designation}),
-        contentType: "application/json",
-        success: function() {
-          refreshTasks();
-        }
+      uploadBtn.addEventListener("click", () => {
+        const file = document.getElementById("csv-file").files[0];
+
+        let formData = new FormData();
+        formData.append("file", file);
+
+        fetch("/upload", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            console.log("Success:", data);
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+          });
       });
-    }
 
-    function deleteTask(id) {
-      $.ajax({
-        url: "/tasks/" + id,
-        type: "DELETE",
-        headers: {
-          "Authorization": "Bearer " + localStorage.getItem("token")
-        },
-        success: function() {
-          refreshTasks();
-        }
-      });
-    }
-
-    function editTask(id) {
-      var li = $(`[data-id='${id}']`);
-      li.find('.task-text, .edit-button, .delete-button').toggle();
-      li.find('.edit-form').toggle();
-    }
-
-    function updateTask(id, newName, newphone_number, newLeaves, newSalary, newDesignation) {
-      $.ajax({
-        url: "/tasks/" + id,
-        type: "PUT",
-        headers: {
-          "Authorization": "Bearer " + localStorage.getItem("token")
-        },
-        data: JSON.stringify({name: newName, phone_number: newphone_number, leaves: newLeaves, salary: newSalary, designation: newDesignation}),
-        contentType: "application/json",
-        success: function() {
-          refreshTasks();
-        }
-      });
-    }
-
-    $(document).on('submit', '.edit-form', function(e) {
-      e.preventDefault();
-      var id = $(this).parent().data('id');
-      var newName = $(this).find('.edit-name').val();
-      var newphone_number = $(this).find('.edit-phonenumber').val();
-      var newLeaves = $(this).find('.edit-leaves').val();
-      var newSalary = $(this).find('.edit-salary').val();
-      var newDesignation = $(this).find('.edit-designation').val();
-      updateTask(id, newName, newphone_number, newLeaves, newSalary, newDesignation);
-    });
-
-    // Call refreshTasks on initial load
-    refreshTasks();
-  </script>
-</body>
+      // Call refreshTasks on initial load
+      refreshTasks();
+    </script>
+  </body>
 </html>
