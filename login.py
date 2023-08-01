@@ -51,71 +51,71 @@ def download_csv():
     return response
 
 
-# @app.route('/upload', methods=['POST'])
-# def upload_file():
-#     file = request.files['file']
-    
-#     if file:
-#         try:
-#             csv_data = file.read().decode('utf-8').splitlines()
-#             reader = csv.reader(csv_data)
-#             header = next(reader)
-
-#             conn = sqlite3.connect(DATABASE)
-#             c = conn.cursor()
-            
-#             for row in reader:
-#                 c.execute(f"INSERT INTO employees ({', '.join(header)}) VALUES ({', '.join(['?']*len(header))})", row)
-            
-#             conn.commit()
-#             conn.close()
-            
-#             return jsonify({"message": "CSV imported successfully"})
-        
-#         except Exception as e:
-#             return jsonify({"message": "Error importing CSV", "error": str(e)})
-
-#     else:
-#         return jsonify({"message": "No file selected"})
-
-
 @app.route('/upload', methods=['POST'])
 def upload_file():
     file = request.files['file']
-
+    
     if file:
         try:
-            db_path = DATABASE
-            
             csv_data = file.read().decode('utf-8').splitlines()
             reader = csv.reader(csv_data)
-
             header = next(reader)
-            
-            conn = sqlite3.connect(db_path)
+
+            conn = sqlite3.connect(DATABASE)
             c = conn.cursor()
             
-            # Drop table if exists
-            c.execute('DROP TABLE IF EXISTS employees')
-            
-            # Recreate table
-            c.execute(f'CREATE TABLE employees ({", ".join([col + " TEXT" for col in header])})')
-            
-            # Insert rows from CSV 
             for row in reader:
-                placeholders = ", ".join(['?']*len(row))
-                c.execute(f'INSERT INTO employees VALUES ({placeholders})', row)
-
+                c.execute(f"INSERT INTO employees ({', '.join(header)}) VALUES ({', '.join(['?']*len(header))})", row)
+            
             conn.commit()
             conn.close()
-
-            return jsonify({'message': 'CSV imported successfully'})
-
+            
+            return jsonify({"message": "CSV imported successfully"})
+        
         except Exception as e:
-            return jsonify({'message': 'Error importing CSV', 'error': str(e)})
+            return jsonify({"message": "Error importing CSV", "error": str(e)})
 
     else:
-        return jsonify({'message': 'No file selected'})
+        return jsonify({"message": "No file selected"})
+
+
+# @app.route('/upload', methods=['POST'])
+# def upload_file():
+#     file = request.files['file']
+
+#     if file:
+#         try:
+#             db_path = DATABASE
+            
+#             csv_data = file.read().decode('utf-8').splitlines()
+#             reader = csv.reader(csv_data)
+
+#             header = next(reader)
+            
+#             conn = sqlite3.connect(db_path)
+#             c = conn.cursor()
+            
+#             # Drop table if exists
+#             c.execute('DROP TABLE IF EXISTS employees')
+            
+#             # Recreate table
+#             c.execute(f'CREATE TABLE employees ({", ".join([col + " TEXT" for col in header])})')
+            
+#             # Insert rows from CSV 
+#             for row in reader:
+#                 placeholders = ", ".join(['?']*len(row))
+#                 c.execute(f'INSERT INTO employees VALUES ({placeholders})', row)
+
+#             conn.commit()
+#             conn.close()
+
+#             return jsonify({'message': 'CSV imported successfully'})
+
+#         except Exception as e:
+#             return jsonify({'message': 'Error importing CSV', 'error': str(e)})
+
+#     else:
+#         return jsonify({'message': 'No file selected'})
     
 
 
