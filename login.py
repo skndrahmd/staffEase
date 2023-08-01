@@ -37,7 +37,7 @@ def download_csv():
     
     rows = c.fetchall()
     
-    output = io.StringIO()
+    output = io.StringIO()  
     writer = csv.writer(output)
 
     writer.writerow(headers)
